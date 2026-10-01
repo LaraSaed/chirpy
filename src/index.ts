@@ -6,9 +6,9 @@ const PORT = 8080;
 
 app.use(middlewareLogResponses);
 app.use("/app", middlewareMetricsInc, express.static("./src/app"));
-app.get("/healthz", handlerReadiness);
-app.get("/metrics", handlerMetrics);
-app.get("/reset", handlerReset);
+app.get("/api/healthz", handlerReadiness);
+app.get("/api/metrics", handlerMetrics);
+app.get("/api/reset", handlerReset);
 
 function handlerReadiness(req: Request, res: Response) {
   res.set("Content-Type", "text/plain; charset=utf-8");
