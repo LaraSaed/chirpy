@@ -4,6 +4,7 @@ import { config } from "./config.js";
 const app = express();
 const PORT = 8080;
 
+app.use(express.json());
 app.use(middlewareLogResponses);
 app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.get("/api/healthz", handlerReadiness);
@@ -17,34 +18,29 @@ function handlerReadiness(req: Request, res: Response) {
 }
 
 function handlerValidateChirp(req: Request, res: Response) {
-  let body = "";
+  type parameters = {
+    body: string;
+  };
 
-  req.on("data", (chunk) => {
-    body += chunk;
-  });
+  const params: parameters = req.body;
+  const badWords = ["kerfuffle", "sharbert", "fornax"];
 
-  req.on("end", () => {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(body);
-    } catch (error) {
-      sendJSON(res, 400, { error: "Something went wrong" });
-      return;
-    }
+  if (!params || typeof params.body !== "string") {
+    sendJSON(res, 400, { error: "Something went wrong" });
+    return;
+  }
 
-    const chirp = (parsed as { body?: unknown } | null)?.body;
-    if (typeof chirp !== "string") {
-      sendJSON(res, 400, { error: "Something went wrong" });
-      return;
-    }
+  if (params.body.length > 140) {
+    sendJSON(res, 400, { error: "Chirp is too long" });
+    return;
+  }
 
-    if (chirp.length > 140) {
-      sendJSON(res, 400, { error: "Chirp is too long" });
-      return;
-    }
+  const cleanedBody = params.body
+    .split(" ")
+    .map((word) => (badWords.includes(word.toLowerCase()) ? "****" : word))
+    .join(" ");
 
-    sendJSON(res, 200, { valid: true });
-  });
+  sendJSON(res, 200, { cleanedBody });
 }
 
 function sendJSON(res: Response, status: number, data: unknown) {
