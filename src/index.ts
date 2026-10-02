@@ -4,6 +4,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 
 import { config } from "./config.js";
+import { createUser, deleteAllUsers } from "./db/queries/users.js";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -21,6 +22,7 @@ app.use(middlewareLogResponses);
 app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.get("/api/healthz", handlerReadiness);
 app.post("/api/validate_chirp", handlerValidateChirp);
+app.post("/api/users", handlerCreateUser);
 app.get("/admin/metrics", handlerMetrics);
 app.post("/admin/reset", handlerReset);
 
@@ -53,6 +55,20 @@ async function handlerValidateChirp(req: Request, res: Response) {
   sendJSON(res, 200, { cleanedBody });
 }
 
+async function handlerCreateUser(req: Request, res: Response) {
+  const email = req.body?.email;
+  if (typeof email !== "string" || email === "") {
+    throw new BadRequestError("Email is required");
+  }
+
+  const user = await createUser({ email });
+  if (!user) {
+    throw new BadRequestError("Could not create user");
+  }
+
+  sendJSON(res, 201, user);
+}
+
 function sendJSON(res: Response, status: number, data: unknown) {
   res.header("Content-Type", "application/json");
   res.status(status).send(JSON.stringify(data));
@@ -68,8 +84,14 @@ function handlerMetrics(req: Request, res: Response) {
 </html>`);
 }
 
-function handlerReset(req: Request, res: Response) {
+async function handlerReset(req: Request, res: Response) {
+  if (config.api.platform !== "dev") {
+    throw new ForbiddenError("Reset is only allowed in dev environment");
+  }
+
   config.api.fileserverHits = 0;
+  await deleteAllUsers();
+
   res.set("Content-Type", "text/plain; charset=utf-8");
   res.send("OK");
 }
