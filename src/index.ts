@@ -7,12 +7,49 @@ const PORT = 8080;
 app.use(middlewareLogResponses);
 app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.get("/api/healthz", handlerReadiness);
+app.post("/api/validate_chirp", handlerValidateChirp);
 app.get("/admin/metrics", handlerMetrics);
 app.post("/admin/reset", handlerReset);
 
 function handlerReadiness(req: Request, res: Response) {
   res.set("Content-Type", "text/plain; charset=utf-8");
   res.send("OK");
+}
+
+function handlerValidateChirp(req: Request, res: Response) {
+  let body = "";
+
+  req.on("data", (chunk) => {
+    body += chunk;
+  });
+
+  req.on("end", () => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body);
+    } catch (error) {
+      sendJSON(res, 400, { error: "Something went wrong" });
+      return;
+    }
+
+    const chirp = (parsed as { body?: unknown } | null)?.body;
+    if (typeof chirp !== "string") {
+      sendJSON(res, 400, { error: "Something went wrong" });
+      return;
+    }
+
+    if (chirp.length > 140) {
+      sendJSON(res, 400, { error: "Chirp is too long" });
+      return;
+    }
+
+    sendJSON(res, 200, { valid: true });
+  });
+}
+
+function sendJSON(res: Response, status: number, data: unknown) {
+  res.header("Content-Type", "application/json");
+  res.status(status).send(JSON.stringify(data));
 }
 
 function handlerMetrics(req: Request, res: Response) {
