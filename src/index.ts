@@ -5,7 +5,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 
 import { config } from "./config.js";
 import { createUser, deleteAllUsers } from "./db/queries/users.js";
-import { createChirp, getAllChirps } from "./db/queries/chirps.js";
+import { createChirp, getAllChirps, getChirp } from "./db/queries/chirps.js";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -25,6 +25,7 @@ app.get("/api/healthz", handlerReadiness);
 app.post("/api/users", handlerCreateUser);
 app.post("/api/chirps", handlerCreateChirp);
 app.get("/api/chirps", handlerGetChirps);
+app.get("/api/chirps/:chirpId", handlerGetChirp);
 app.get("/admin/metrics", handlerMetrics);
 app.post("/admin/reset", handlerReset);
 
@@ -72,6 +73,14 @@ async function handlerCreateChirp(req: Request, res: Response) {
 async function handlerGetChirps(req: Request, res: Response) {
   const allChirps = await getAllChirps();
   sendJSON(res, 200, allChirps);
+}
+
+async function handlerGetChirp(req: Request, res: Response) {
+  const chirp = await getChirp(req.params.chirpId as string);
+  if (!chirp) {
+    throw new NotFoundError("Chirp not found");
+  }
+  sendJSON(res, 200, chirp);
 }
 
 function sendJSON(res: Response, status: number, data: unknown) {
