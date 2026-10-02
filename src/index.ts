@@ -8,7 +8,7 @@ app.use(middlewareLogResponses);
 app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.get("/api/healthz", handlerReadiness);
 app.get("/admin/metrics", handlerMetrics);
-app.get("/admin/reset", handlerReset);
+app.post("/admin/reset", handlerReset);
 
 function handlerReadiness(req: Request, res: Response) {
   res.set("Content-Type", "text/plain; charset=utf-8");
