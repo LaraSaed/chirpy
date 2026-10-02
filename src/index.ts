@@ -1,4 +1,8 @@
 import express, { Request, Response, NextFunction } from "express";
+import postgres from "postgres";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { drizzle } from "drizzle-orm/postgres-js";
+
 import { config } from "./config.js";
 import {
   BadRequestError,
@@ -7,8 +11,10 @@ import {
   NotFoundError,
 } from "./errors.js";
 
+const migrationClient = postgres(config.db.url, { max: 1 });
+await migrate(drizzle(migrationClient), config.db.migrationConfig);
+
 const app = express();
-const PORT = 8080;
 
 app.use(express.json());
 app.use(middlewareLogResponses);
@@ -57,13 +63,13 @@ function handlerMetrics(req: Request, res: Response) {
   res.send(`<html>
   <body>
     <h1>Welcome, Chirpy Admin</h1>
-    <p>Chirpy has been visited ${config.fileserverHits} times!</p>
+    <p>Chirpy has been visited ${config.api.fileserverHits} times!</p>
   </body>
 </html>`);
 }
 
 function handlerReset(req: Request, res: Response) {
-  config.fileserverHits = 0;
+  config.api.fileserverHits = 0;
   res.set("Content-Type", "text/plain; charset=utf-8");
   res.send("OK");
 }
@@ -79,7 +85,7 @@ function middlewareLogResponses(req: Request, res: Response, next: NextFunction)
 }
 
 function middlewareMetricsInc(req: Request, res: Response, next: NextFunction) {
-  config.fileserverHits++;
+  config.api.fileserverHits++;
   next();
 }
 
@@ -100,6 +106,6 @@ function errorHandler(err: Error, req: Request, res: Response, next: NextFunctio
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Server is running at http://localhost:${PORT}`);
+app.listen(config.api.port, () => {
+  console.log(`Server is running at http://localhost:${config.api.port}`);
 });
