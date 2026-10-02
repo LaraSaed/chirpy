@@ -5,7 +5,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 
 import { config } from "./config.js";
 import { createUser, deleteAllUsers } from "./db/queries/users.js";
-import { createChirp } from "./db/queries/chirps.js";
+import { createChirp, getAllChirps } from "./db/queries/chirps.js";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -24,6 +24,7 @@ app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.get("/api/healthz", handlerReadiness);
 app.post("/api/users", handlerCreateUser);
 app.post("/api/chirps", handlerCreateChirp);
+app.get("/api/chirps", handlerGetChirps);
 app.get("/admin/metrics", handlerMetrics);
 app.post("/admin/reset", handlerReset);
 
@@ -66,6 +67,11 @@ async function handlerCreateChirp(req: Request, res: Response) {
 
   const chirp = await createChirp({ body: cleanedBody, userId });
   sendJSON(res, 201, chirp);
+}
+
+async function handlerGetChirps(req: Request, res: Response) {
+  const allChirps = await getAllChirps();
+  sendJSON(res, 200, allChirps);
 }
 
 function sendJSON(res: Response, status: number, data: unknown) {
