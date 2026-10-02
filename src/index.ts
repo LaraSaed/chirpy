@@ -5,6 +5,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 
 import { config } from "./config.js";
 import { createUser, deleteAllUsers } from "./db/queries/users.js";
+import { createChirp } from "./db/queries/chirps.js";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -21,38 +22,14 @@ app.use(express.json());
 app.use(middlewareLogResponses);
 app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.get("/api/healthz", handlerReadiness);
-app.post("/api/validate_chirp", handlerValidateChirp);
 app.post("/api/users", handlerCreateUser);
+app.post("/api/chirps", handlerCreateChirp);
 app.get("/admin/metrics", handlerMetrics);
 app.post("/admin/reset", handlerReset);
 
 function handlerReadiness(req: Request, res: Response) {
   res.set("Content-Type", "text/plain; charset=utf-8");
   res.send("OK");
-}
-
-async function handlerValidateChirp(req: Request, res: Response) {
-  type parameters = {
-    body: string;
-  };
-
-  const params: parameters = req.body;
-  const badWords = ["kerfuffle", "sharbert", "fornax"];
-
-  if (!params || typeof params.body !== "string") {
-    throw new BadRequestError("Something went wrong");
-  }
-
-  if (params.body.length > 140) {
-    throw new BadRequestError("Chirp is too long. Max length is 140");
-  }
-
-  const cleanedBody = params.body
-    .split(" ")
-    .map((word) => (badWords.includes(word.toLowerCase()) ? "****" : word))
-    .join(" ");
-
-  sendJSON(res, 200, { cleanedBody });
 }
 
 async function handlerCreateUser(req: Request, res: Response) {
@@ -67,6 +44,28 @@ async function handlerCreateUser(req: Request, res: Response) {
   }
 
   sendJSON(res, 201, user);
+}
+
+async function handlerCreateChirp(req: Request, res: Response) {
+  const body = req.body?.body;
+  const userId = req.body?.userId;
+
+  if (typeof body !== "string" || typeof userId !== "string") {
+    throw new BadRequestError("body and userId are required");
+  }
+
+  if (body.length > 140) {
+    throw new BadRequestError("Chirp is too long. Max length is 140");
+  }
+
+  const badWords = ["kerfuffle", "sharbert", "fornax"];
+  const cleanedBody = body
+    .split(" ")
+    .map((word) => (badWords.includes(word.toLowerCase()) ? "****" : word))
+    .join(" ");
+
+  const chirp = await createChirp({ body: cleanedBody, userId });
+  sendJSON(res, 201, chirp);
 }
 
 function sendJSON(res: Response, status: number, data: unknown) {
