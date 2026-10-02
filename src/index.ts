@@ -17,7 +17,7 @@ function handlerReadiness(req: Request, res: Response) {
   res.send("OK");
 }
 
-function handlerValidateChirp(req: Request, res: Response) {
+async function handlerValidateChirp(req: Request, res: Response) {
   type parameters = {
     body: string;
   };
@@ -31,8 +31,7 @@ function handlerValidateChirp(req: Request, res: Response) {
   }
 
   if (params.body.length > 140) {
-    sendJSON(res, 400, { error: "Chirp is too long" });
-    return;
+    throw new Error("Chirp is too long");
   }
 
   const cleanedBody = params.body
@@ -78,6 +77,13 @@ function middlewareMetricsInc(req: Request, res: Response, next: NextFunction) {
   config.fileserverHits++;
   next();
 }
+
+function errorHandler(err: Error, req: Request, res: Response, next: NextFunction) {
+  console.log(err.message);
+  sendJSON(res, 500, { error: "Something went wrong on our end" });
+}
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
