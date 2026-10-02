@@ -1,5 +1,11 @@
 import express, { Request, Response, NextFunction } from "express";
 import { config } from "./config.js";
+import {
+  BadRequestError,
+  UnauthorizedError,
+  ForbiddenError,
+  NotFoundError,
+} from "./errors.js";
 
 const app = express();
 const PORT = 8080;
@@ -26,12 +32,11 @@ async function handlerValidateChirp(req: Request, res: Response) {
   const badWords = ["kerfuffle", "sharbert", "fornax"];
 
   if (!params || typeof params.body !== "string") {
-    sendJSON(res, 400, { error: "Something went wrong" });
-    return;
+    throw new BadRequestError("Something went wrong");
   }
 
   if (params.body.length > 140) {
-    throw new Error("Chirp is too long");
+    throw new BadRequestError("Chirp is too long. Max length is 140");
   }
 
   const cleanedBody = params.body
@@ -79,8 +84,18 @@ function middlewareMetricsInc(req: Request, res: Response, next: NextFunction) {
 }
 
 function errorHandler(err: Error, req: Request, res: Response, next: NextFunction) {
-  console.log(err.message);
-  sendJSON(res, 500, { error: "Something went wrong on our end" });
+  if (err instanceof BadRequestError) {
+    sendJSON(res, 400, { error: err.message });
+  } else if (err instanceof UnauthorizedError) {
+    sendJSON(res, 401, { error: err.message });
+  } else if (err instanceof ForbiddenError) {
+    sendJSON(res, 403, { error: err.message });
+  } else if (err instanceof NotFoundError) {
+    sendJSON(res, 404, { error: err.message });
+  } else {
+    console.log(err.message);
+    sendJSON(res, 500, { error: "Something went wrong on our end" });
+  }
 }
 
 app.use(errorHandler);
