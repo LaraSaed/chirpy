@@ -35,6 +35,14 @@ It covers the core of a real back-end:
 
 3. Create a `.env` file in the project root:
 
+```
+DB_URL="postgres://postgres:postgres@localhost:5432/chirpy?sslmode=disable"
+PORT=8080
+PLATFORM="dev"
+JWT_SECRET="a-long-random-string"
+POLKA_KEY="your-polka-api-key"
+```
+
 4. Start the server. It runs the migrations automatically:
 
 ```bash
