@@ -4,8 +4,14 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 
 import { config } from "./config.js";
-import { createUser, deleteAllUsers } from "./db/queries/users.js";
+import { hashPassword, checkPasswordHash } from "./auth.js";
+import {
+  createUser,
+  getUserByEmail,
+  deleteAllUsers,
+} from "./db/queries/users.js";
 import { createChirp, getAllChirps, getChirp } from "./db/queries/chirps.js";
+import type { UserResponse } from "./db/schema.js";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -23,6 +29,7 @@ app.use(middlewareLogResponses);
 app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.get("/api/healthz", handlerReadiness);
 app.post("/api/users", handlerCreateUser);
+app.post("/api/login", handlerLogin);
 app.post("/api/chirps", handlerCreateChirp);
 app.get("/api/chirps", handlerGetChirps);
 app.get("/api/chirps/:chirpId", handlerGetChirp);
@@ -36,16 +43,55 @@ function handlerReadiness(req: Request, res: Response) {
 
 async function handlerCreateUser(req: Request, res: Response) {
   const email = req.body?.email;
-  if (typeof email !== "string" || email === "") {
-    throw new BadRequestError("Email is required");
+  const password = req.body?.password;
+  if (
+    typeof email !== "string" ||
+    email === "" ||
+    typeof password !== "string" ||
+    password === ""
+  ) {
+    throw new BadRequestError("Email and password are required");
   }
 
-  const user = await createUser({ email });
+  const hashedPassword = await hashPassword(password);
+  const user = await createUser({ email, hashedPassword });
   if (!user) {
     throw new BadRequestError("Could not create user");
   }
 
-  sendJSON(res, 201, user);
+  const response: UserResponse = {
+    id: user.id,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    email: user.email,
+  };
+  sendJSON(res, 201, response);
+}
+
+async function handlerLogin(req: Request, res: Response) {
+  const email = req.body?.email;
+  const password = req.body?.password;
+  if (typeof email !== "string" || typeof password !== "string") {
+    throw new BadRequestError("Email and password are required");
+  }
+
+  const user = await getUserByEmail(email);
+  if (!user) {
+    throw new UnauthorizedError("incorrect email or password");
+  }
+
+  const matches = await checkPasswordHash(password, user.hashedPassword);
+  if (!matches) {
+    throw new UnauthorizedError("incorrect email or password");
+  }
+
+  const response: UserResponse = {
+    id: user.id,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    email: user.email,
+  };
+  sendJSON(res, 200, response);
 }
 
 async function handlerCreateChirp(req: Request, res: Response) {

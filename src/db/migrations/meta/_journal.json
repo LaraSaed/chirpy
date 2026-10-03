@@ -15,6 +15,13 @@
       "when": 1790937894684,
       "tag": "0001_amusing_hellcat",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791012639968,
+      "tag": "0002_loose_rockslide",
+      "breakpoints": true
     }
   ]
 }
