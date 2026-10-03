@@ -16,6 +16,7 @@ import {
   createUser,
   getUserByEmail,
   updateUser,
+  upgradeToChirpyRed,
   deleteAllUsers,
 } from "./db/queries/users.js";
 import { createChirp, getAllChirps, getChirp, deleteChirp } from "./db/queries/chirps.js";
@@ -49,6 +50,7 @@ app.put("/api/users", handlerUpdateUser);
 app.post("/api/login", handlerLogin);
 app.post("/api/refresh", handlerRefresh);
 app.post("/api/revoke", handlerRevoke);
+app.post("/api/polka/webhooks", handlerPolkaWebhook);
 app.post("/api/chirps", handlerCreateChirp);
 app.get("/api/chirps", handlerGetChirps);
 app.get("/api/chirps/:chirpId", handlerGetChirp);
@@ -84,6 +86,7 @@ async function handlerCreateUser(req: Request, res: Response) {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     email: user.email,
+    isChirpyRed: user.isChirpyRed,
   };
   sendJSON(res, 201, response);
 }
@@ -119,6 +122,7 @@ async function handlerLogin(req: Request, res: Response) {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     email: user.email,
+    isChirpyRed: user.isChirpyRed,
     token: token,
     refreshToken: refreshToken,
   };
@@ -271,6 +275,7 @@ async function handlerUpdateUser(req: Request, res: Response) {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     email: user.email,
+    isChirpyRed: user.isChirpyRed,
   };
   sendJSON(res, 200, response);
 }
@@ -290,5 +295,24 @@ async function handlerDeleteChirp(req: Request, res: Response) {
   }
 
   await deleteChirp(chirpId);
+  res.status(204).send();
+}
+
+async function handlerPolkaWebhook(req: Request, res: Response) {
+  if (req.body?.event !== "user.upgraded") {
+    res.status(204).send();
+    return;
+  }
+
+  const userId = req.body?.data?.userId;
+  if (typeof userId !== "string") {
+    throw new BadRequestError("userId is required");
+  }
+
+  const user = await upgradeToChirpyRed(userId);
+  if (!user) {
+    throw new NotFoundError("User not found");
+  }
+
   res.status(204).send();
 }

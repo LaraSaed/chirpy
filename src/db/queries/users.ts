@@ -32,3 +32,12 @@ export async function updateUser(
 export async function deleteAllUsers() {
   await db.delete(users);
 }
+
+export async function upgradeToChirpyRed(id: string) {
+  const [result] = await db
+    .update(users)
+    .set({ isChirpyRed: true, updatedAt: new Date() })
+    .where(eq(users.id, id))
+    .returning();
+  return result;
+}
