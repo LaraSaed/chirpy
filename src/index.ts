@@ -178,6 +178,12 @@ async function handlerGetChirps(req: Request, res: Response) {
   const authorIdQuery = req.query.authorId;
   const authorId = typeof authorIdQuery === "string" ? authorIdQuery : "";
   const allChirps = await getAllChirps(authorId);
+  const sortDesc = req.query.sort === "desc";
+  allChirps.sort((a, b) =>
+    sortDesc
+      ? b.createdAt.getTime() - a.createdAt.getTime()
+      : a.createdAt.getTime() - b.createdAt.getTime(),
+  );
   sendJSON(res, 200, allChirps);
 }
 
