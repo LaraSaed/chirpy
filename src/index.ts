@@ -18,7 +18,7 @@ import {
   updateUser,
   deleteAllUsers,
 } from "./db/queries/users.js";
-import { createChirp, getAllChirps, getChirp } from "./db/queries/chirps.js";
+import { createChirp, getAllChirps, getChirp, deleteChirp } from "./db/queries/chirps.js";
 import {
   createRefreshToken,
   getUserFromRefreshToken,
@@ -52,6 +52,7 @@ app.post("/api/revoke", handlerRevoke);
 app.post("/api/chirps", handlerCreateChirp);
 app.get("/api/chirps", handlerGetChirps);
 app.get("/api/chirps/:chirpId", handlerGetChirp);
+app.delete("/api/chirps/:chirpId", handlerDeleteChirp);
 app.get("/admin/metrics", handlerMetrics);
 app.post("/admin/reset", handlerReset);
 
@@ -272,4 +273,22 @@ async function handlerUpdateUser(req: Request, res: Response) {
     email: user.email,
   };
   sendJSON(res, 200, response);
+}
+
+async function handlerDeleteChirp(req: Request, res: Response) {
+  const token = getBearerToken(req);
+  const userId = validateJWT(token, config.api.jwtSecret);
+
+  const chirpId = req.params.chirpId as string;
+  const chirp = await getChirp(chirpId);
+  if (!chirp) {
+    throw new NotFoundError("Chirp not found");
+  }
+
+  if (chirp.userId !== userId) {
+    throw new ForbiddenError("You can only delete your own chirps");
+  }
+
+  await deleteChirp(chirpId);
+  res.status(204).send();
 }
