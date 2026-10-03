@@ -175,7 +175,9 @@ async function handlerCreateChirp(req: Request, res: Response) {
 }
 
 async function handlerGetChirps(req: Request, res: Response) {
-  const allChirps = await getAllChirps();
+  const authorIdQuery = req.query.authorId;
+  const authorId = typeof authorIdQuery === "string" ? authorIdQuery : "";
+  const allChirps = await getAllChirps(authorId);
   sendJSON(res, 200, allChirps);
 }
 
