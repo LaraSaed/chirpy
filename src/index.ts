@@ -15,6 +15,7 @@ import {
 import {
   createUser,
   getUserByEmail,
+  updateUser,
   deleteAllUsers,
 } from "./db/queries/users.js";
 import { createChirp, getAllChirps, getChirp } from "./db/queries/chirps.js";
@@ -44,6 +45,7 @@ app.use(middlewareLogResponses);
 app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.get("/api/healthz", handlerReadiness);
 app.post("/api/users", handlerCreateUser);
+app.put("/api/users", handlerUpdateUser);
 app.post("/api/login", handlerLogin);
 app.post("/api/refresh", handlerRefresh);
 app.post("/api/revoke", handlerRevoke);
@@ -241,3 +243,33 @@ app.use(errorHandler);
 app.listen(config.api.port, () => {
   console.log(`Server is running at http://localhost:${config.api.port}`);
 });
+
+async function handlerUpdateUser(req: Request, res: Response) {
+  const token = getBearerToken(req);
+  const userId = validateJWT(token, config.api.jwtSecret);
+
+  const email = req.body?.email;
+  const password = req.body?.password;
+  if (
+    typeof email !== "string" ||
+    email === "" ||
+    typeof password !== "string" ||
+    password === ""
+  ) {
+    throw new BadRequestError("Email and password are required");
+  }
+
+  const hashedPassword = await hashPassword(password);
+  const user = await updateUser(userId, email, hashedPassword);
+  if (!user) {
+    throw new UnauthorizedError("User not found");
+  }
+
+  const response: UserResponse = {
+    id: user.id,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    email: user.email,
+  };
+  sendJSON(res, 200, response);
+}
