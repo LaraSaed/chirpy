@@ -6,6 +6,7 @@ import {
   makeJWT,
   validateJWT,
   getBearerToken,
+  getAPIKey,
 } from "./auth.js";
 
 describe("Password Hashing", () => {
@@ -70,5 +71,26 @@ describe("getBearerToken", () => {
 
   it("should throw when the header is not a Bearer header", () => {
     expect(() => getBearerToken(fakeReq("Basic abc123"))).toThrow();
+  });
+});
+
+describe("getAPIKey", () => {
+  function fakeReq(header?: string): Request {
+    return {
+      get: (name: string) =>
+        name.toLowerCase() === "authorization" ? header : undefined,
+    } as unknown as Request;
+  }
+
+  it("should return the key from an ApiKey header", () => {
+    expect(getAPIKey(fakeReq("ApiKey abc123"))).toBe("abc123");
+  });
+
+  it("should throw when the header is missing", () => {
+    expect(() => getAPIKey(fakeReq())).toThrow();
+  });
+
+  it("should throw when the header is a Bearer header", () => {
+    expect(() => getAPIKey(fakeReq("Bearer abc123"))).toThrow();
   });
 });

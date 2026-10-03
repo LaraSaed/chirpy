@@ -11,6 +11,7 @@ import {
   validateJWT,
   getBearerToken,
   makeRefreshToken,
+  getAPIKey,
 } from "./auth.js";
 import {
   createUser,
@@ -299,6 +300,11 @@ async function handlerDeleteChirp(req: Request, res: Response) {
 }
 
 async function handlerPolkaWebhook(req: Request, res: Response) {
+  const apiKey = getAPIKey(req);
+  if (apiKey !== config.api.polkaKey) {
+    throw new UnauthorizedError("Invalid API key");
+  }
+
   if (req.body?.event !== "user.upgraded") {
     res.status(204).send();
     return;
