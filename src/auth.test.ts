@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import type { Request } from "express";
 import {
   hashPassword,
   checkPasswordHash,
   makeJWT,
   validateJWT,
+  getBearerToken,
 } from "./auth.js";
 
 describe("Password Hashing", () => {
@@ -47,5 +49,26 @@ describe("JWTs", () => {
 
   it("should reject a garbage token", () => {
     expect(() => validateJWT("not.a.token", secret)).toThrow();
+  });
+});
+
+describe("getBearerToken", () => {
+  function fakeReq(header?: string): Request {
+    return {
+      get: (name: string) =>
+        name.toLowerCase() === "authorization" ? header : undefined,
+    } as unknown as Request;
+  }
+
+  it("should return the token from a Bearer header", () => {
+    expect(getBearerToken(fakeReq("Bearer abc123"))).toBe("abc123");
+  });
+
+  it("should throw when the header is missing", () => {
+    expect(() => getBearerToken(fakeReq())).toThrow();
+  });
+
+  it("should throw when the header is not a Bearer header", () => {
+    expect(() => getBearerToken(fakeReq("Basic abc123"))).toThrow();
   });
 });

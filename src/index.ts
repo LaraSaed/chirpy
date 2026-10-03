@@ -4,7 +4,13 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 
 import { config } from "./config.js";
-import { hashPassword, checkPasswordHash } from "./auth.js";
+import {
+  hashPassword,
+  checkPasswordHash,
+  makeJWT,
+  validateJWT,
+  getBearerToken,
+} from "./auth.js";
 import {
   createUser,
   getUserByEmail,
@@ -75,6 +81,13 @@ async function handlerLogin(req: Request, res: Response) {
     throw new BadRequestError("Email and password are required");
   }
 
+  const maxSeconds = 60 * 60;
+  let expiresIn = maxSeconds;
+  const requested = req.body?.expiresInSeconds;
+  if (typeof requested === "number" && requested > 0) {
+    expiresIn = Math.min(requested, maxSeconds);
+  }
+
   const user = await getUserByEmail(email);
   if (!user) {
     throw new UnauthorizedError("incorrect email or password");
@@ -85,21 +98,25 @@ async function handlerLogin(req: Request, res: Response) {
     throw new UnauthorizedError("incorrect email or password");
   }
 
-  const response: UserResponse = {
+  const token = makeJWT(user.id, expiresIn, config.api.jwtSecret);
+
+  const response: UserResponse & { token: string } = {
     id: user.id,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     email: user.email,
+    token: token,
   };
   sendJSON(res, 200, response);
 }
 
 async function handlerCreateChirp(req: Request, res: Response) {
-  const body = req.body?.body;
-  const userId = req.body?.userId;
+  const token = getBearerToken(req);
+  const userId = validateJWT(token, config.api.jwtSecret);
 
-  if (typeof body !== "string" || typeof userId !== "string") {
-    throw new BadRequestError("body and userId are required");
+  const body = req.body?.body;
+  if (typeof body !== "string") {
+    throw new BadRequestError("body is required");
   }
 
   if (body.length > 140) {
