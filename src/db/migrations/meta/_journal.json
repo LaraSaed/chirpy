@@ -22,6 +22,13 @@
       "when": 1791012639968,
       "tag": "0002_loose_rockslide",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791013607397,
+      "tag": "0003_mixed_richard_fisk",
+      "breakpoints": true
     }
   ]
 }

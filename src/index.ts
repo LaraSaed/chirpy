@@ -10,6 +10,7 @@ import {
   makeJWT,
   validateJWT,
   getBearerToken,
+  makeRefreshToken,
 } from "./auth.js";
 import {
   createUser,
@@ -17,6 +18,11 @@ import {
   deleteAllUsers,
 } from "./db/queries/users.js";
 import { createChirp, getAllChirps, getChirp } from "./db/queries/chirps.js";
+import {
+  createRefreshToken,
+  getUserFromRefreshToken,
+  revokeRefreshToken,
+} from "./db/queries/refresh.js";
 import type { UserResponse } from "./db/schema.js";
 import {
   BadRequestError,
@@ -24,6 +30,9 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "./errors.js";
+
+const ACCESS_TOKEN_SECONDS = 60 * 60;
+const REFRESH_TOKEN_MS = 60 * 24 * 60 * 60 * 1000;
 
 const migrationClient = postgres(config.db.url, { max: 1 });
 await migrate(drizzle(migrationClient), config.db.migrationConfig);
@@ -36,6 +45,8 @@ app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 app.get("/api/healthz", handlerReadiness);
 app.post("/api/users", handlerCreateUser);
 app.post("/api/login", handlerLogin);
+app.post("/api/refresh", handlerRefresh);
+app.post("/api/revoke", handlerRevoke);
 app.post("/api/chirps", handlerCreateChirp);
 app.get("/api/chirps", handlerGetChirps);
 app.get("/api/chirps/:chirpId", handlerGetChirp);
@@ -81,13 +92,6 @@ async function handlerLogin(req: Request, res: Response) {
     throw new BadRequestError("Email and password are required");
   }
 
-  const maxSeconds = 60 * 60;
-  let expiresIn = maxSeconds;
-  const requested = req.body?.expiresInSeconds;
-  if (typeof requested === "number" && requested > 0) {
-    expiresIn = Math.min(requested, maxSeconds);
-  }
-
   const user = await getUserByEmail(email);
   if (!user) {
     throw new UnauthorizedError("incorrect email or password");
@@ -98,16 +102,45 @@ async function handlerLogin(req: Request, res: Response) {
     throw new UnauthorizedError("incorrect email or password");
   }
 
-  const token = makeJWT(user.id, expiresIn, config.api.jwtSecret);
+  const token = makeJWT(user.id, ACCESS_TOKEN_SECONDS, config.api.jwtSecret);
 
-  const response: UserResponse & { token: string } = {
+  const refreshToken = makeRefreshToken();
+  await createRefreshToken(
+    refreshToken,
+    user.id,
+    new Date(Date.now() + REFRESH_TOKEN_MS),
+  );
+
+  const response: UserResponse & { token: string; refreshToken: string } = {
     id: user.id,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     email: user.email,
     token: token,
+    refreshToken: refreshToken,
   };
   sendJSON(res, 200, response);
+}
+
+async function handlerRefresh(req: Request, res: Response) {
+  const refreshToken = getBearerToken(req);
+  const result = await getUserFromRefreshToken(refreshToken);
+  if (!result) {
+    throw new UnauthorizedError("Invalid refresh token");
+  }
+
+  const token = makeJWT(
+    result.user.id,
+    ACCESS_TOKEN_SECONDS,
+    config.api.jwtSecret,
+  );
+  sendJSON(res, 200, { token });
+}
+
+async function handlerRevoke(req: Request, res: Response) {
+  const refreshToken = getBearerToken(req);
+  await revokeRefreshToken(refreshToken);
+  res.status(204).send();
 }
 
 async function handlerCreateChirp(req: Request, res: Response) {

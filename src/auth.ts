@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import argon2 from "argon2";
 import jwt from "jsonwebtoken";
 import type { JwtPayload } from "jsonwebtoken";
@@ -64,4 +65,8 @@ export function getBearerToken(req: Request): string {
   }
 
   return parts[1];
+}
+
+export function makeRefreshToken(): string {
+  return crypto.randomBytes(32).toString("hex");
 }
